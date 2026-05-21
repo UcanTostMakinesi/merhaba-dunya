@@ -3,203 +3,161 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Küp Domates Boss Fight</title>
+    <title>TostMakinesi Games</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #0f172a; cursor: crosshair; font-family: 'Segoe UI', sans-serif; }
-        canvas { display: block; }
-        .ui-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.9); color: white; z-index: 10; }
-        .hidden { display: none !important; }
+        body { background-color: #eff6ff; }
+        .game-card { transition: transform 0.2s ease; }
+        .game-card:hover { transform: translateY(-5px); }
+        .hidden { display: none; }
     </style>
 </head>
-<body>
+<body class="font-sans text-blue-900">
 
-    <div id="menu-screen" class="ui-overlay">
-        <h1 class="text-6xl font-bold mb-10 text-red-500">KÜP DOMATES BOSS FIGHT</h1>
-        <p class="text-2xl mb-8 text-yellow-500 font-bold">ZORLUK SEVİYESİNİ SEÇ (Bullet Hell Modu)</p>
-        <div class="flex flex-col gap-4">
-            <button onclick="startGame(100)" class="px-8 py-4 bg-green-600 hover:bg-green-700 rounded-xl text-xl font-bold w-64">BEBE (100 HP)</button>
-            <button onclick="startGame(5000)" class="px-8 py-4 bg-blue-600 hover:bg-blue-700 rounded-xl text-xl font-bold w-64">KOLAY (5000 HP)</button>
-            <button onclick="startGame(20000)" class="px-8 py-4 bg-yellow-600 hover:bg-yellow-700 rounded-xl text-xl font-bold w-64">NORMAL (20.000 HP)</button>
-            <button onclick="startGame(100000)" class="px-8 py-4 bg-red-600 hover:bg-red-700 rounded-xl text-xl font-bold w-64">ZOR (100.000 HP)</button>
+    <header class="p-6 bg-blue-600 shadow-lg text-white flex justify-between items-center">
+        <h1 class="text-3xl font-extrabold tracking-tight">TostMakinesi Games</h1>
+        <button onclick="openAdmin()" class="bg-blue-900 px-4 py-2 rounded-full font-bold hover:bg-black transition-all">
+            Yönetici Paneli
+        </button>
+    </header>
+
+    <main class="max-w-6xl mx-auto p-6">
+        <div id="gameGrid" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <!-- Oyunlar burada listelenecek -->
+        </div>
+    </main>
+
+    <div id="adminModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl">
+            <h2 id="modalTitle" class="text-2xl font-bold mb-4">Yönetici Girişi</h2>
+            
+            <div id="loginArea">
+                <input type="password" id="passwordInput" placeholder="Şifre" class="w-full p-3 border rounded-lg mb-4">
+                <button onclick="checkPassword()" class="w-full bg-blue-600 text-white p-3 rounded-lg font-bold">Giriş Yap</button>
+            </div>
+
+            <div id="uploadForm" class="hidden space-y-4">
+                <input type="text" id="gameName" placeholder="Oyun Adı" class="w-full p-3 border rounded-lg">
+                <label class="block text-sm text-gray-500">HTML Oyun Dosyası:</label>
+                <input type="file" id="gameFile" accept=".html" class="w-full p-2 border rounded-lg">
+                <button onclick="addGame()" class="w-full bg-green-600 text-white p-3 rounded-lg font-bold">Oyunu Ekle</button>
+                
+                <hr class="my-2">
+                <div class="flex gap-2">
+                    <button onclick="exportGames()" class="flex-1 bg-yellow-500 text-white p-2 rounded-lg font-bold text-sm">Yedekle (Dışa Aktar)</button>
+                    <label class="flex-1 bg-purple-500 text-white p-2 rounded-lg font-bold text-sm text-center cursor-pointer">
+                        Yükle (İçe Aktar)
+                        <input type="file" id="importFile" accept=".json" class="hidden" onchange="importGames(event)">
+                    </label>
+                </div>
+            </div>
+            <button onclick="closeModal()" class="w-full mt-4 text-gray-500 hover:text-red-500 font-bold">Kapat</button>
+            <p id="msg" class="mt-2 text-center text-sm font-bold"></p>
         </div>
     </div>
 
-    <div id="win-screen" class="ui-overlay hidden">
-        <h1 id="win-text" class="text-6xl font-bold text-green-500 mb-8 text-center px-4">KAZANDIN!</h1>
-        <button onclick="backToMenu()" class="px-8 py-4 bg-white text-black rounded-xl text-xl font-bold hover:bg-gray-200">ANA MENÜYE DÖN</button>
-    </div>
-
-    <canvas id="gameCanvas"></canvas>
-
     <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        let gameState = 'menu';
+        let games = JSON.parse(localStorage.getItem('myGames')) || [];
 
-        let player = { x: 100, y: 100, width: 40, height: 40, vx: 0, vy: 0, speed: 7, jumpPower: -15, onGround: false, color: '#3b82f6', hp: 100, maxHp: 100, damage: 10, shield: false };
-        let enemy = { x: 600, y: 100, width: 80, height: 80, speed: 8, dir: 1, hp: 5000, maxHp: 5000, frozen: false };
-        let bullets = [], items = [], activeEffects = [], bossAttacks = [], attackTimer = 0;
-        let mouse = { x: 0, y: 0 }, platforms = [], keys = {};
-
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            platforms = getPlatforms();
-        }
-        window.addEventListener('resize', resize);
-        resize();
-
-        function getPlatforms() {
-            const w = canvas.width, h = canvas.height;
-            return [
-                { x: 0, y: h - 20, w: w, h: 20 },
-                { x: w * 0.1, y: h - 150, w: w * 0.2, h: 20 },
-                { x: w * 0.7, y: h - 150, w: w * 0.2, h: 20 },
-                { x: w * 0.2, y: h - 300, w: w * 0.15, h: 20 },
-                { x: w * 0.65, y: h - 300, w: w * 0.15, h: 20 },
-                { x: w * 0.4, y: h - 225, w: w * 0.2, h: 20 },
-                { x: w * 0.425, y: h - 375, w: w * 0.15, h: 20 }
-            ];
-        }
-
-        function spawnItem() {
-            if (items.length > 2) return;
-            const p = platforms[Math.floor(Math.random() * platforms.length)];
-            const type = Math.floor(Math.random() * 5) + 1;
-            items.push({ x: p.x + p.w/2 - 15, y: p.y - 30, type: type, color: ['red', 'green', 'yellow', 'purple', 'cyan'][type-1] });
-        }
-
-        function triggerRandomAttack() {
-            const type = Math.floor(Math.random() * 20);
-            const w = canvas.width, h = canvas.height;
-
-            if (type < 5) for(let i=0; i<30; i++) bossAttacks.push({ type: 'rain', x: Math.random() * w, y: -50, vy: 8 + Math.random() * 5 });
-            else if (type < 10) for(let i=0; i<3; i++) bossAttacks.push({ type: 'blaster', timer: 30, x: enemy.x, y: enemy.y, vx: (Math.random()-0.5)*20, vy: 15 });
-            else if (type < 15) for(let i=0; i<32; i++) {
-                let angle = (i / 32) * Math.PI * 2;
-                bossAttacks.push({ type: 'circle', x: enemy.x + 40, y: enemy.y + 40, vx: Math.cos(angle)*12, vy: Math.sin(angle)*12 });
-            }
-            else bossAttacks.push({ type: 'spiral', x: enemy.x, y: enemy.y, angle: 0, count: 0 });
-        }
-
-        function getWinMessage(hp) {
-            if (hp === 100) return "KAZANDIN! (Sen bebe misin git adam akıllı oyna)";
-            if (hp === 5000) return "KAZANDIN! (Zor modda kazansana beta)";
-            if (hp === 20000) return "KAZANDIN! (Kazandın işte)";
-            if (hp === 100000) return "KAZANDIN! (Onu nasıl becerdin?)";
-            return "KAZANDIN!";
-        }
-
-        function startGame(hp) {
-            enemy.maxHp = hp; enemy.hp = hp;
-            player.x = 100; player.y = 100; player.hp = 100;
-            player.damage = 10; player.speed = 7; player.shield = false;
-            bullets = []; items = []; activeEffects = []; bossAttacks = [];
-            gameState = 'playing';
-            document.getElementById('menu-screen').classList.add('hidden');
-            document.getElementById('win-screen').classList.add('hidden');
-        }
-
-        function backToMenu() {
-            gameState = 'menu';
-            document.getElementById('menu-screen').classList.remove('hidden');
-            document.getElementById('win-screen').classList.add('hidden');
-        }
-
-        window.addEventListener('keydown', e => keys[e.code] = true);
-        window.addEventListener('keyup', e => keys[e.code] = false);
-        window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
-        window.addEventListener('mousedown', () => {
-            if (gameState !== 'playing') return;
-            const angle = Math.atan2(mouse.y - (player.y + 20), mouse.x - (player.x + 20));
-            bullets.push({ x: player.x + 20, y: player.y + 20, vx: Math.cos(angle) * 45, vy: Math.sin(angle) * 45, color: activeEffects.some(e => e.type === 1) ? 'red' : 'yellow' });
-        });
-
-        function update() {
-            if (gameState === 'playing') {
-                if (Math.random() < 0.005) spawnItem();
-                attackTimer++;
-                if (attackTimer > 60) { triggerRandomAttack(); attackTimer = 0; }
-
-                activeEffects.forEach((e, i) => {
-                    e.timer--;
-                    if (e.timer <= 0) {
-                        if (e.type === 1) player.damage = 10;
-                        if (e.type === 3) player.speed = 7;
-                        if (e.type === 4) enemy.frozen = false;
-                        if (e.type === 5) player.shield = false;
-                        activeEffects.splice(i, 1);
-                    }
-                });
-
-                if (keys['KeyA']) player.vx = -player.speed;
-                else if (keys['KeyD']) player.vx = player.speed;
-                else player.vx = 0;
-                if ((keys['KeyW'] || keys['Space']) && player.onGround) { player.vy = player.jumpPower; player.onGround = false; }
-                
-                player.vy += 0.8; player.x += player.vx; player.y += player.vy;
-                if (player.x < 0) player.x = 0; if (player.x > canvas.width - player.width) player.x = canvas.width - player.width;
-
-                if (!enemy.frozen) { enemy.x += enemy.speed * enemy.dir; if (enemy.x > canvas.width - enemy.width || enemy.x < 0) enemy.dir *= -1; }
-
-                bossAttacks.forEach((a, i) => {
-                    if (a.type === 'rain') a.y += a.vy;
-                    if (a.type === 'circle' || a.type === 'blaster') { a.x += a.vx; a.y += a.vy; }
-                    if (a.type === 'spiral') { a.angle += 0.2; a.x += Math.cos(a.angle)*15; a.y += Math.sin(a.angle)*15; a.count++; if(a.count > 100) bossAttacks.splice(i, 1); }
-                    if (!player.shield && a.x < player.x + player.width && a.x + 20 > player.x && a.y < player.y + player.height && a.y + 20 > player.y) player.hp -= 0.5;
-                    if (a.y > canvas.height) bossAttacks.splice(i, 1);
-                });
-
-                bullets.forEach((b, i) => {
-                    b.x += b.vx; b.y += b.vy;
-                    if (b.x > enemy.x && b.x < enemy.x + enemy.width && b.y > enemy.y && b.y < enemy.y + enemy.height) {
-                        enemy.hp -= (activeEffects.some(e => e.type === 1) ? 50 : player.damage);
-                        bullets.splice(i, 1);
-                        if (enemy.hp <= 0) { gameState = 'won'; document.getElementById('win-text').innerText = getWinMessage(enemy.maxHp); document.getElementById('win-screen').classList.remove('hidden'); }
-                    }
-                });
-
-                items.forEach((item, i) => {
-                    if (player.x < item.x + 30 && player.x + 40 > item.x && player.y < item.y + 30 && player.y + 40 > item.y) {
-                        if (item.type === 1) { activeEffects.push({ type: 1, timer: 600 }); player.damage = 50; }
-                        if (item.type === 2) { player.hp = Math.min(100, player.hp + 30); }
-                        if (item.type === 3) { activeEffects.push({ type: 3, timer: 600 }); player.speed = 15; }
-                        if (item.type === 4) { activeEffects.push({ type: 4, timer: 600 }); enemy.frozen = true; }
-                        if (item.type === 5) { activeEffects.push({ type: 5, timer: 600 }); player.shield = true; }
-                        items.splice(i, 1);
-                    }
-                });
-
-                player.onGround = false;
-                platforms.forEach(p => {
-                    if (player.x < p.x + p.w && player.x + player.width > p.x && player.y + player.height > p.y && player.y + player.height < p.y + p.h + 10 && player.vy > 0) {
-                        player.y = p.y - player.height; player.vy = 0; player.onGround = true;
-                    }
-                });
-
-                if (player.hp <= 0) backToMenu();
-            }
-            draw();
-            requestAnimationFrame(update);
-        }
-
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            platforms.forEach(p => { ctx.fillStyle = '#10b981'; ctx.fillRect(p.x, p.y, p.w, p.h); });
-            items.forEach(it => { ctx.fillStyle = it.color; ctx.beginPath(); ctx.arc(it.x + 15, it.y + 15, 15, 0, Math.PI*2); ctx.fill(); });
-            ctx.fillStyle = player.shield ? 'cyan' : player.color;
-            ctx.fillRect(player.x, player.y, player.width, player.height);
-            ctx.fillStyle = 'red'; ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
-            bossAttacks.forEach(a => { ctx.fillStyle = '#f87171'; ctx.fillRect(a.x, a.y, 15, 15); });
-            bullets.forEach(b => { ctx.fillStyle = b.color; ctx.fillRect(b.x, b.y, 8, 8); });
+        function renderGames() {
+            const grid = document.getElementById('gameGrid');
+            grid.innerHTML = games.length === 0 ? 
+                '<p class="col-span-full text-center text-xl mt-10 text-blue-500 font-bold">Henüz oyun yüklenmemiş. Yönetici panelinden ekleyebilirsin!</p>' : '';
             
-            ctx.fillStyle = '#ef4444'; ctx.fillRect(50, 20, (canvas.width - 100) * (Math.max(0, enemy.hp) / enemy.maxHp), 40);
-            ctx.fillStyle = '#22c55e'; ctx.fillRect(50, 70, 200 * (player.hp / player.maxHp), 20);
-            activeEffects.forEach((e, i) => { ctx.fillStyle = 'white'; ctx.fillRect(50, 100 + i*20, 200 * (e.timer / 600), 10); });
+            games.forEach((game, index) => {
+                grid.innerHTML += `
+                    <div class="bg-white p-4 rounded-xl shadow-md game-card border-l-4 border-blue-500">
+                        <h3 class="font-bold text-lg mb-3 truncate">${game.name}</h3>
+                        <button onclick="playGame(${index})" class="w-full bg-blue-500 text-white py-2 rounded-lg font-bold hover:bg-blue-700 transition">Oyna</button>
+                    </div>
+                `;
+            });
         }
 
-        update();
+        function checkPassword() {
+            const pass = document.getElementById('passwordInput').value;
+            if(pass === "Kafiye.5876.") {
+                document.getElementById('uploadForm').classList.remove('hidden');
+                document.getElementById('loginArea').classList.add('hidden');
+                document.getElementById('modalTitle').innerText = "Oyun Paneli";
+            } else {
+                showMessage("Hatalı şifre!", "red");
+            }
+        }
+
+        function addGame() {
+            const name = document.getElementById('gameName').value;
+            const fileInput = document.getElementById('gameFile');
+            
+            if(name && fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    games.push({name: name, content: e.target.result});
+                    localStorage.setItem('myGames', JSON.stringify(games));
+                    renderGames();
+                    showMessage("Oyun başarıyla eklendi!", "green");
+                    document.getElementById('gameName').value = '';
+                    document.getElementById('gameFile').value = '';
+                };
+                reader.readAsText(file);
+            } else {
+                showMessage("Lütfen isim ve dosya seçin.", "red");
+            }
+        }
+
+        function exportGames() {
+            const data = JSON.stringify(games);
+            const blob = new Blob([data], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'oyunlarim_yedek.json';
+            a.click();
+            showMessage("Yedek dosyası indirildi!", "green");
+        }
+
+        function importGames(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    games = imported;
+                    localStorage.setItem('myGames', JSON.stringify(games));
+                    renderGames();
+                    showMessage("Oyunlar başarıyla geri yüklendi!", "green");
+                } catch(err) {
+                    showMessage("Hatalı yedek dosyası!", "red");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function playGame(index) {
+            const game = games[index];
+            const win = window.open("", "_blank", "width=800,height=600");
+            win.document.write(game.content);
+        }
+
+        function showMessage(text, color) {
+            const m = document.getElementById('msg');
+            m.innerText = text;
+            m.className = `mt-2 text-center text-sm font-bold text-${color}-500`;
+        }
+
+        function openAdmin() { document.getElementById('adminModal').classList.remove('hidden'); }
+        function closeModal() { 
+            document.getElementById('adminModal').classList.add('hidden'); 
+            document.getElementById('uploadForm').classList.add('hidden');
+            document.getElementById('loginArea').classList.remove('hidden');
+            document.getElementById('modalTitle').innerText = "Yönetici Girişi";
+            document.getElementById('passwordInput').value = '';
+            document.getElementById('msg').innerText = '';
+        }
+
+        window.onload = renderGames;
     </script>
 </body>
 </html>
