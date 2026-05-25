@@ -1,0 +1,1781 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Space Shooter - Galaksi Savunması</title>
+    <!-- Tailwind CSS ve Google Fonts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Orbitron', sans-serif;
+            background-color: #03001e;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        .neon-glow {
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.8), 0 0 20px rgba(0, 243, 255, 0.4);
+        }
+        .neon-glow-red {
+            text-shadow: 0 0 10px rgba(255, 0, 128, 0.8), 0 0 20px rgba(255, 0, 128, 0.4);
+        }
+        .neon-glow-gold {
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.8), 0 0 20px rgba(255, 215, 0, 0.4);
+        }
+        .neon-border {
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.5);
+            border: 2px solid rgba(0, 243, 255, 0.8);
+        }
+        .neon-btn {
+            background: rgba(0, 243, 255, 0.1);
+            border: 2px solid rgba(0, 243, 255, 0.8);
+            color: #00f3ff;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+        }
+        .neon-btn:hover {
+            background: #00f3ff;
+            color: #03001e;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.8);
+        }
+    </style>
+</head>
+<body class="relative flex items-center justify-center">
+
+    <!-- Oyun Tuvali -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- BAŞLANGIÇ EKRANI -->
+    <div id="startMenu" class="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-white z-20 px-4 text-center">
+        <h1 class="text-5xl md:text-7xl font-black tracking-widest neon-glow text-cyan-400 mb-2">NEON SPACE</h1>
+        <h2 class="text-2xl md:text-3xl font-bold tracking-wider text-fuchsia-500 mb-8">SHOOTER</h2>
+        
+        <p class="text-gray-400 max-w-md mb-8 text-sm md:text-base leading-relaxed">
+            Galaksiyi koru! 10 zorlu seviye boyunca savaş, güçlen ve final seviyesindeki Amiral Gemisi Boss'unu yok et!
+        </p>
+
+        <div class="space-y-4 w-full max-w-xs">
+            <button id="startButton" class="w-full py-4 text-xl font-bold rounded-lg neon-btn uppercase tracking-wider">
+                Savaşa Başla
+            </button>
+            <button id="toggleAudioBtn" class="w-full py-2 text-sm rounded-lg border border-gray-600 text-gray-400 hover:text-white transition">
+                Ses: AÇIK
+            </button>
+        </div>
+
+        <div class="mt-12 text-xs md:text-sm text-gray-500 space-y-2">
+            <p class="hidden md:block">Yön Tuşları / WASD ile hareket et, Boşluk (Space) ile ateş et.</p>
+            <p class="md:hidden">Ekrana dokunarak gemiyi sürükle, otomatik ateş eder!</p>
+        </div>
+    </div>
+
+    <!-- OYUN İÇİ HUD (GÖSTERGELER) -->
+    <div id="hud" class="absolute top-0 left-0 right-0 p-4 md:p-6 flex justify-between items-start pointer-events-none z-10 text-white hidden">
+        <!-- Sol taraf: Skor ve Seviye -->
+        <div class="flex flex-col gap-1">
+            <div class="text-xs uppercase tracking-widest text-cyan-400 font-bold">Skor</div>
+            <div id="scoreText" class="text-2xl md:text-3xl font-black neon-glow">00000</div>
+            <div id="levelText" class="text-sm text-fuchsia-400 font-bold mt-1">Seviye 1 / 10</div>
+        </div>
+
+        <!-- Orta: Kristaller / Geliştirme Puanı -->
+        <div class="flex flex-col items-center">
+            <div class="text-xs uppercase tracking-widest text-yellow-400 font-bold">Kristaller</div>
+            <div id="coinsText" class="text-xl md:text-2xl font-black text-yellow-300">💎 0</div>
+        </div>
+
+        <!-- Sağ taraf: Canlar ve Kalkanlar -->
+        <div class="flex flex-col items-end gap-2">
+            <div class="flex items-center gap-1">
+                <span class="text-xs uppercase tracking-widest text-emerald-400 font-bold mr-1">Can</span>
+                <div id="heartsContainer" class="flex gap-1 text-red-500 text-lg md:text-xl">
+                    ❤️ ❤️ ❤️
+                </div>
+            </div>
+            <!-- Kalkan Barı -->
+            <div class="w-28 md:w-40 h-2 bg-gray-800 rounded-full overflow-hidden border border-cyan-500/30">
+                <div id="shieldBar" class="h-full bg-cyan-400 transition-all duration-100" style="width: 100%"></div>
+            </div>
+            <div id="shieldPercentageText" class="text-[10px] text-cyan-300 uppercase tracking-widest">Kalkan %100</div>
+        </div>
+    </div>
+
+    <!-- GELİŞTİRME / MARKET MENÜSÜ -->
+    <div id="shopMenu" class="absolute inset-0 bg-black/95 flex flex-col items-center justify-center text-white z-20 px-4 text-center hidden">
+        <h2 class="text-3xl md:text-4xl font-black text-yellow-400 uppercase tracking-widest mb-2 animate-pulse">Geliştirme İstasyonu</h2>
+        <p class="text-gray-400 mb-6 text-sm">Biriktirdiğin kristallerle gemini güçlendir!</p>
+        
+        <div class="text-xl font-bold text-yellow-300 mb-6" id="shopCoinsText">Mevcut Kristal: 💎 0</div>
+
+        <!-- Geliştirme Seçenekleri Kartları -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-3xl mb-8">
+            <!-- 1. Silah Hızı -->
+            <div class="bg-gray-900/60 border border-cyan-500/40 p-4 rounded-xl flex flex-col justify-between items-center">
+                <div>
+                    <h3 class="font-bold text-cyan-300 text-lg">Ateş Hızı</h3>
+                    <p class="text-xs text-gray-400 mt-1">Daha hızlı ateş etmeni sağlar.</p>
+                </div>
+                <div class="mt-4 w-full">
+                    <div id="fireRateProgress" class="flex justify-center gap-1 mb-2"></div>
+                    <button onclick="buyUpgrade('fireRate')" id="btnUpgradeFireRate" class="w-full py-2 bg-cyan-500/20 border border-cyan-500 text-cyan-300 hover:bg-cyan-500 hover:text-black font-bold rounded text-sm transition">
+                        Geliştir: 💎 12
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. Silah Türü (Çoklu Atış) -->
+            <div class="bg-gray-900/60 border border-purple-500/40 p-4 rounded-xl flex flex-col justify-between items-center">
+                <div>
+                    <h3 class="font-bold text-purple-300 text-lg">Çoklu Atış</h3>
+                    <p class="text-xs text-gray-400 mt-1">Aynı anda daha fazla mermi fırlatır.</p>
+                </div>
+                <div class="mt-4 w-full">
+                    <div id="multiShotProgress" class="flex justify-center gap-1 mb-2"></div>
+                    <button onclick="buyUpgrade('multiShot')" id="btnUpgradeMultiShot" class="w-full py-2 bg-purple-500/20 border border-purple-500 text-purple-300 hover:bg-purple-500 hover:text-black font-bold rounded text-sm transition">
+                        Geliştir: 💎 18
+                    </button>
+                </div>
+            </div>
+
+            <!-- 3. Kalkan Maksimumu -->
+            <div class="bg-gray-900/60 border border-emerald-500/40 p-4 rounded-xl flex flex-col justify-between items-center">
+                <div>
+                    <h3 class="font-bold text-emerald-300 text-lg">Kalkan Kapasitesi</h3>
+                    <p class="text-xs text-gray-400 mt-1">Hasara karşı korumayı arttırır.</p>
+                </div>
+                <div class="mt-4 w-full">
+                    <div id="shieldProgress" class="flex justify-center gap-1 mb-2"></div>
+                    <button onclick="buyUpgrade('shield')" id="btnUpgradeShield" class="w-full py-2 bg-emerald-500/20 border border-emerald-500 text-emerald-300 hover:bg-emerald-500 hover:text-black font-bold rounded text-sm transition">
+                        Geliştir: 💎 10
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <button id="resumeFromShopBtn" class="px-8 py-3 bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-black uppercase rounded-lg tracking-wider text-sm md:text-base shadow-lg transition duration-300">
+            Savaşa Dön (Sonraki Seviye)
+        </button>
+    </div>
+
+    <!-- OYUN BİTTİ EKRANI -->
+    <div id="gameOverMenu" class="absolute inset-0 bg-black/95 flex flex-col items-center justify-center text-white z-20 px-4 text-center hidden">
+        <h1 class="text-4xl md:text-6xl font-black tracking-widest neon-glow-red text-red-500 mb-2">SAVAŞ BİTTİ</h1>
+        <p class="text-gray-400 mb-8 uppercase tracking-widest text-xs">Gemin Ağır Hasar Aldı</p>
+
+        <div class="bg-gray-900/50 border border-red-500/30 p-6 rounded-2xl max-w-sm w-full mb-8 space-y-3">
+            <div class="flex justify-between">
+                <span class="text-gray-400">Toplam Skor:</span>
+                <span id="finalScore" class="font-bold text-cyan-400">0</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-400">Ulaşılan Seviye:</span>
+                <span id="finalLevel" class="font-bold text-fuchsia-400">1</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-400">En Yüksek Skor:</span>
+                <span id="highScoreText" class="font-bold text-yellow-400">0</span>
+            </div>
+        </div>
+
+        <!-- DÜZENLENMİŞ BUTON YAPISI -->
+        <div class="flex flex-col gap-3 w-full max-w-xs sm:max-w-md">
+            <!-- Devam Et Butonu (Checkpoint) -->
+            <button id="continueButton" class="w-full py-4 font-bold rounded-lg bg-emerald-500 text-black hover:bg-emerald-400 transition-all font-bold uppercase tracking-wider text-sm shadow-lg shadow-emerald-500/30">
+                Kaldığın Yerden Devam Et (Seviye <span id="continueLevelText">1</span>)
+            </button>
+            <div class="flex gap-3 w-full">
+                <button id="restartButton" class="flex-1 py-4 font-bold rounded-lg bg-cyan-500 text-black hover:bg-cyan-400 transition-all font-bold uppercase tracking-wider text-sm shadow-lg shadow-cyan-500/30">
+                    Sıfırdan Başla
+                </button>
+                <button id="mainMenuButton" class="flex-1 py-4 font-bold rounded-lg bg-gray-800 hover:bg-gray-700 transition border border-gray-600 uppercase tracking-wider text-sm">
+                    Ana Menü
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ZAFER / OYUN KAZANILDI EKRANI -->
+    <div id="victoryMenu" class="absolute inset-0 bg-black/95 flex flex-col items-center justify-center text-white z-20 px-4 text-center hidden">
+        <h1 class="text-5xl md:text-7xl font-black tracking-widest neon-glow-gold text-yellow-400 mb-2 animate-bounce">BÜYÜK ZAFER</h1>
+        <h2 class="text-xl md:text-2xl font-bold text-emerald-400 uppercase tracking-widest mb-8">Karanlık Güçler Yenildi, Galaksi Kurtarıldı!</h2>
+
+        <div class="bg-gray-900/60 border border-yellow-500/40 p-8 rounded-2xl max-w-sm w-full mb-8 space-y-4">
+            <div class="text-center text-gray-300 text-sm border-b border-gray-800 pb-3">Galaksi Kahramanı İstatistikleri</div>
+            <div class="flex justify-between">
+                <span class="text-gray-400">Efsanevi Skor:</span>
+                <span id="vicScore" class="font-bold text-yellow-300 text-xl">0</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-400">Toplanan Kristal:</span>
+                <span id="vicCoins" class="font-bold text-cyan-400">💎 0</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-400">Kalan Can:</span>
+                <span id="vicLives" class="font-bold text-red-400">❤️ 0</span>
+            </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-4 w-full max-w-xs sm:max-w-md">
+            <button id="victoryPlayAgainBtn" class="flex-1 py-4 font-bold rounded-lg bg-yellow-500 text-black hover:bg-yellow-400 transition-all uppercase tracking-wider text-sm shadow-lg shadow-yellow-500/30">
+                Tekrar Oyna
+            </button>
+            <button id="victoryMainMenuBtn" class="flex-1 py-4 font-bold rounded-lg bg-gray-800 hover:bg-gray-700 transition border border-gray-600 uppercase tracking-wider text-sm">
+                Ana Menü
+            </button>
+        </div>
+    </div>
+
+    <!-- SEVİYE ATLAYIŞ EKRANI -->
+    <div id="levelUpBanner" class="absolute inset-x-0 top-1/3 text-center pointer-events-none z-15 transform -translate-y-1/2 hidden">
+        <h2 id="levelUpTitle" class="text-4xl md:text-6xl font-black text-fuchsia-400 tracking-widest uppercase scale-75 animate-bounce mb-2">Seviye Atlandı!</h2>
+        <p id="nextLevelBannerText" class="text-cyan-300 font-bold uppercase tracking-wider">Geliştirme İstasyonu Açılıyor...</p>
+    </div>
+
+    <script>
+        // WEB AUDIO RETRO SES JENERATÖRÜ VE PROSEDÜREL BGM SISTEMI
+        class SoundSynth {
+            constructor() {
+                this.enabled = true;
+                this.ctx = null;
+                this.bgmInterval = null;
+                this.bgmTick = 0;
+                this.bgmTheme = null; // 'normal' veya 'boss'
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            // MÜZİK BAŞLATMA METODU
+            startBGM(theme) {
+                if (!this.enabled) return;
+                this.init();
+                this.stopBGM();
+
+                this.bgmTheme = theme;
+                this.bgmTick = 0;
+
+                // Temaya göre çalma temposu (milisaniye cinsinden nota uzunluğu)
+                const noteDuration = theme === 'boss' ? 110 : 160; 
+
+                this.bgmInterval = setInterval(() => {
+                    this.playBGMStep();
+                }, noteDuration);
+            }
+
+            // MÜZİK DURDURMA METODU
+            stopBGM() {
+                if (this.bgmInterval) {
+                    clearInterval(this.bgmInterval);
+                    this.bgmInterval = null;
+                }
+            }
+
+            // PROSEDÜREL RETRO NOTALARI ÜRETEN ADIM MOTORU
+            playBGMStep() {
+                if (!this.enabled || !this.ctx) return;
+
+                // Tarayıcı güvenlik kısıtlamaları kontrolü
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+
+                const now = this.ctx.currentTime;
+
+                // 1. TEMA: SEVİYE 1-9 SAKİN UZAY ARPEJİ (A-Minor / E-Minor Uzay Modu)
+                if (this.bgmTheme === 'normal') {
+                    const step = this.bgmTick % 16;
+                    
+                    // Nota Frekansları
+                    let chordNotes = [220.00, 261.63, 329.63]; // A3, C4, E4 (La Minör)
+                    let bassFreq = 110.00; // A2 Bas
+
+                    if (step >= 8) {
+                        chordNotes = [164.81, 196.00, 246.94]; // E3, G3, B3 (Mi Minör)
+                        bassFreq = 82.41; // E2 Bas
+                    }
+
+                    // Bas vuruşları (Her 4 adımda bir)
+                    if (step % 4 === 0) {
+                        this.playSynthNote(bassFreq, 'triangle', 0.12, 0.45, now);
+                    }
+
+                    // Akıcı arpej melodisi (Her çift adımda bir çalınır)
+                    if (step % 2 === 0) {
+                        const note = chordNotes[(step / 2) % chordNotes.length] * 2; // Bir oktav yukarı
+                        this.playSynthNote(note, 'sine', 0.04, 0.28, now);
+                    }
+                } 
+                // 2. TEMA: 10. SEVİYE AGRESİF BOSS SAVAŞ SENTEZİ (D-Minor Cyber-Industrial)
+                else if (this.bgmTheme === 'boss') {
+                    const step = this.bgmTick % 16;
+
+                    // Değişken ve agresif bas notaları: D2 (73.42Hz), F2 (87.31Hz), C2 (65.41Hz), G2 (98.00Hz)
+                    let bassFreq = 73.42; 
+                    if (step >= 4 && step < 8) bassFreq = 87.31;
+                    if (step >= 8 && step < 12) bassFreq = 65.41;
+                    if (step >= 12) bassFreq = 98.00;
+
+                    // Hızlı, keskin ve enerjik bas ritmi (Her çift adımda testere dişi dalgası)
+                    if (step % 2 === 0) {
+                        this.playSynthNote(bassFreq, 'sawtooth', 0.08, 0.14, now);
+                    }
+
+                    // Tehditkar cyber alarm melodisi (Tansiyonu artırır)
+                    if (step % 4 === 1) {
+                        const alarmFreq = (step === 5 || step === 13) ? 587.33 : 622.25; // D5 ve D#5 arası gerilim geçişi
+                        this.playSynthNote(alarmFreq, 'square', 0.025, 0.09, now);
+                    }
+                }
+
+                this.bgmTick++;
+            }
+
+            // SENTETİZÖR ENSTRÜMANI (Temiz zarf dalgasıyla pop/klik seslerini önler)
+            playSynthNote(freq, type, volume, duration, time) {
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, time);
+
+                // Attack (Saldırı) & Decay (Sönümleme) Ses Zarfı
+                gain.gain.setValueAtTime(0, time);
+                gain.gain.linearRampToValueAtTime(volume, time + 0.015);
+                gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start(time);
+                osc.stop(time + duration);
+            }
+
+            // SES EFEKTLERİ MANTIKLARI
+            playLaser() {
+                if (!this.enabled) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(600, now);
+                osc.frequency.exponentialRampToValueAtTime(80, now + 0.15);
+                
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                
+                osc.start(now);
+                osc.stop(now + 0.15);
+            }
+
+            playExplosion(isLarge = false) {
+                if (!this.enabled) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const duration = isLarge ? 0.7 : 0.3;
+                
+                const bufferSize = this.ctx.sampleRate * duration;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+                
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(isLarge ? 250 : 550, now);
+                filter.frequency.exponentialRampToValueAtTime(10, now + duration);
+                
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+                
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                
+                noise.start(now);
+                noise.stop(now + duration);
+            }
+
+            playPowerup() {
+                if (!this.enabled) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.linearRampToValueAtTime(450, now + 0.1);
+                osc.frequency.linearRampToValueAtTime(900, now + 0.25);
+                
+                gain.gain.setValueAtTime(0.18, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                
+                osc.start(now);
+                osc.stop(now + 0.3);
+            }
+
+            playLevelUp() {
+                if (!this.enabled) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                
+                const osc1 = this.ctx.createOscillator();
+                const osc2 = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc1.type = 'square';
+                osc1.frequency.setValueAtTime(261.63, now); // C4
+                osc1.frequency.setValueAtTime(329.63, now + 0.1); // E4
+                osc1.frequency.setValueAtTime(392.00, now + 0.2); // G4
+                osc1.frequency.setValueAtTime(523.25, now + 0.3); // C5
+                
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(261.63 * 2, now);
+                
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                
+                osc1.connect(gain);
+                osc2.connect(gain);
+                gain.connect(this.ctx.destination);
+                
+                osc1.start(now);
+                osc2.start(now);
+                osc1.stop(now + 0.5);
+                osc2.stop(now + 0.5);
+            }
+
+            playHit() {
+                if (!this.enabled) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(120, now);
+                osc.frequency.exponentialRampToValueAtTime(20, now + 0.15);
+                
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                
+                osc.start(now);
+                osc.stop(now + 0.15);
+            }
+        }
+
+        const sounds = new SoundSynth();
+
+        // OYUN MOTORU VE DEĞİŞKENLERİ
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Oyun Durumları: 'START', 'PLAYING', 'SHOP', 'GAMEOVER', 'VICTORY'
+        let gameState = 'START';
+
+        // Durum Verileri
+        let score = 0;
+        let highscore = parseInt(localStorage.getItem('neon_shooter_highscore') || '0');
+        let level = 1;
+        const maxLevel = 10;
+        const scorePerLevel = 300; // Her seviye 300 puan sürer (Daha hızlı, kısa seviyeler)
+        let coins = 0;
+        let keys = {};
+        
+        // Geliştirme Seviyeleri (Max 5)
+        let upgrades = {
+            fireRate: 1, 
+            multiShot: 1, 
+            shield: 1    
+        };
+
+        const maxUpgradeLvl = 5;
+
+        // Boyutlandırma
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Nesneler
+        let player;
+        let bullets = [];
+        let enemies = [];
+        let particles = [];
+        let items = []; 
+        let stars = [];
+        let boss = null;
+
+        // Yıldız Arka Planı Üretici
+        function initStars() {
+            stars = [];
+            for (let i = 0; i < 150; i++) {
+                stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 2,
+                    speed: Math.random() * 0.8 + 0.2,
+                    color: Math.random() > 0.8 ? 'rgba(0, 243, 255, 0.4)' : 'rgba(255, 255, 255, 0.2)'
+                });
+            }
+        }
+
+        // SINIFLAR
+        class Player {
+            constructor() {
+                this.width = 40;
+                this.height = 40;
+                this.x = canvas.width / 2;
+                this.y = canvas.height - 100;
+                this.speed = 7.5;
+                this.color = '#00f3ff';
+                this.glow = 'rgba(0, 243, 255, 0.8)';
+                this.lives = 3;
+                // --- GÜNCELLEME: Kalkan Sağlığı 4 Kat Azaltıldı (100 -> 25) ---
+                this.maxShield = 25;
+                this.shield = 25;
+                this.lastShotTime = 0;
+                this.isShieldActive = true;
+                this.invulnerable = false;
+                this.invulnerableTimer = 0;
+            }
+
+            getFireCooldown() {
+                // Seviye 1: 330ms, Seviye 5: 130ms
+                return 330 - (upgrades.fireRate - 1) * 50;
+            }
+
+            // --- GÜNCELLEME: Maksimum Kalkan Hesaplaması 4 Kat Azaltıldı ---
+            getMaxShield() {
+                return 25 + (upgrades.shield - 1) * 7.5; // Eski: 100 + (upgrades.shield - 1) * 30
+            }
+
+            draw() {
+                ctx.save();
+                
+                let tilt = 0;
+                if (keys['ArrowLeft'] || keys['KeyA']) tilt = -0.15;
+                if (keys['ArrowRight'] || keys['KeyD']) tilt = 0.15;
+
+                ctx.translate(this.x, this.y);
+                ctx.rotate(tilt);
+
+                if (this.invulnerable && Math.floor(Date.now() / 100) % 2 === 0) {
+                    ctx.restore();
+                    return;
+                }
+
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = this.color;
+
+                // Motor Ateşi
+                ctx.fillStyle = '#ff0080';
+                ctx.shadowColor = '#ff0080';
+                ctx.beginPath();
+                ctx.moveTo(-6, 15);
+                ctx.lineTo(6, 15);
+                ctx.lineTo(0, 15 + Math.random() * 12 + 4);
+                ctx.closePath();
+                ctx.fill();
+
+                // Gemi Çizimi
+                ctx.shadowColor = this.color;
+                ctx.fillStyle = '#03001e';
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 3;
+
+                ctx.beginPath();
+                ctx.moveTo(0, -22); 
+                ctx.lineTo(18, 12); 
+                ctx.lineTo(6, 6);   
+                ctx.lineTo(-6, 6);  
+                ctx.lineTo(-18, 12); 
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.strokeStyle = '#fff';
+                ctx.beginPath();
+                ctx.moveTo(0, -10);
+                ctx.lineTo(4, 2);
+                ctx.lineTo(-4, 2);
+                ctx.closePath();
+                ctx.stroke();
+
+                if (this.shield > 0) {
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = '#00f3ff';
+                    ctx.strokeStyle = `rgba(0, 243, 255, ${0.15 + (this.shield / this.getMaxShield()) * 0.45})`;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 32, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+
+            update() {
+                if (keys['ArrowLeft'] || keys['KeyA']) this.x -= this.speed;
+                if (keys['ArrowRight'] || keys['KeyD']) this.x += this.speed;
+                if (keys['ArrowUp'] || keys['KeyW']) this.y -= this.speed;
+                if (keys['ArrowDown'] || keys['KeyS']) this.y += this.speed;
+
+                if (this.x < 25) this.x = 25;
+                if (this.x > canvas.width - 25) this.x = canvas.width - 25;
+                if (this.y < 25) this.y = 25;
+                if (this.y > canvas.height - 25) this.y = canvas.height - 25;
+
+                if (this.invulnerable) {
+                    if (Date.now() > this.invulnerableTimer) {
+                        this.invulnerable = false;
+                    }
+                }
+
+                // --- GÜNCELLEME: Kalkan Dolma Oranı Küçültüldü (0.06 -> 0.015) ---
+                if (this.shield < this.getMaxShield()) {
+                    this.shield += 0.015; 
+                    updateHUD();
+                }
+            }
+
+            fire() {
+                const now = Date.now();
+                if (now - this.lastShotTime < this.getFireCooldown()) return;
+                
+                this.lastShotTime = now;
+                sounds.playLaser();
+
+                const mode = upgrades.multiShot;
+
+                if (mode === 1) {
+                    bullets.push(new Bullet(this.x, this.y - 20, 0, -12));
+                } else if (mode === 2) {
+                    bullets.push(new Bullet(this.x - 12, this.y - 10, 0, -12));
+                    bullets.push(new Bullet(this.x + 12, this.y - 10, 0, -12));
+                } else if (mode === 3) {
+                    bullets.push(new Bullet(this.x, this.y - 20, 0, -12));
+                    bullets.push(new Bullet(this.x - 14, this.y - 10, -2.5, -11));
+                    bullets.push(new Bullet(this.x + 14, this.y - 10, 2.5, -11));
+                } else if (mode === 4) {
+                    bullets.push(new Bullet(this.x, this.y - 22, 0, -14, '#ff00e1'));
+                    bullets.push(new Bullet(this.x - 15, this.y - 10, -3.5, -13, '#ff00e1'));
+                    bullets.push(new Bullet(this.x + 15, this.y - 10, 3.5, -13, '#ff00e1'));
+                } else {
+                    bullets.push(new Bullet(this.x, this.y - 22, 0, -15, '#fff'));
+                    bullets.push(new Bullet(this.x - 12, this.y - 10, -2, -14, '#00f3ff'));
+                    bullets.push(new Bullet(this.x + 12, this.y - 10, 2, -14, '#00f3ff'));
+                    bullets.push(new Bullet(this.x - 24, this.y - 5, -4.5, -12, '#ff0080'));
+                    bullets.push(new Bullet(this.x + 24, this.y - 5, 4.5, -12, '#ff0080'));
+                }
+            }
+
+            // --- GÜNCELLEME: Hasar Aldığında Kalkan Sıfırlanırsa Doğrudan Can Gider ---
+            damage(amount) {
+                if (this.invulnerable) return;
+
+                sounds.playHit();
+                
+                this.shield -= amount;
+                if (this.shield <= 0) {
+                    this.shield = 0;
+                    this.lives--;
+                    createExplosion(this.x, this.y, '#ff0055', 30);
+                    
+                    if (this.lives <= 0) {
+                        gameOver();
+                    } else {
+                        this.shield = this.getMaxShield();
+                        this.invulnerable = true;
+                        this.invulnerableTimer = Date.now() + 2000; 
+                    }
+                }
+                updateHUD();
+                screenShake = 15;
+            }
+        }
+
+        class Bullet {
+            constructor(x, y, vx, vy, color = '#00f3ff') {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.color = color;
+                this.radius = 3;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+            }
+        }
+
+        // BOSS SINIFI (10. Seviye Özel Düşmanı - İKİ KAT GÜÇLENDİRİLDİ)
+        class Boss {
+            constructor() {
+                this.x = canvas.width / 2;
+                this.y = -150; // Girişte üstten kayacak
+                this.targetY = 150;
+                this.size = 75;
+                // Boss Canı İKİ KATINA Çıkarıldı! (Sıradan 220 yerine 440 HP)
+                this.hp = (120 + level * 10) * 2; 
+                this.maxHp = this.hp;
+                this.color = '#ff0055';
+                this.lastAttackTime = 0;
+                this.attackPattern = 0; // 0: Süper Yelpaze, 1: Hızlı Takip Lazer, 2: Seçkin Minyon Çağırma
+                this.patternTimer = Date.now();
+                this.vx = 4.0; // Daha hızlı hareket eder
+            }
+
+            draw() {
+                ctx.save();
+                ctx.shadowBlur = 25;
+                ctx.shadowColor = this.color;
+                ctx.fillStyle = '#090033';
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 4;
+
+                // Boss Gövde Tasarımı
+                ctx.translate(this.x, this.y);
+                ctx.beginPath();
+                ctx.moveTo(0, 45); // Alt burun
+                ctx.lineTo(40, 15);
+                ctx.lineTo(75, 25); // Sağ büyük kanat ucu
+                ctx.lineTo(50, -35);
+                ctx.lineTo(20, -15);
+                ctx.lineTo(0, -45); // Arka merkez
+                ctx.lineTo(-20, -15);
+                ctx.lineTo(-50, -35);
+                ctx.lineTo(-75, 25); // Sol büyük kanat ucu
+                ctx.lineTo(-40, 15);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // Boss Kırmızı Çekirdek Gözü
+                ctx.shadowColor = '#ffd700';
+                ctx.fillStyle = '#ff3c00';
+                ctx.beginPath();
+                ctx.arc(0, 5, 12 + Math.sin(Date.now() / 100) * 3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Koruma Kalkanı Görseli (Eğer canı yüksekse)
+                if (this.hp > this.maxHp * 0.5) {
+                    ctx.shadowColor = '#ff00ff';
+                    ctx.strokeStyle = `rgba(255, 0, 255, ${0.1 + Math.sin(Date.now() / 150) * 0.1})`;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 95, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+
+            update() {
+                // Giriş hareketi
+                if (this.y < this.targetY) {
+                    this.y += 2.0;
+                    return; // Tam yerleşene kadar saldırmaz
+                }
+
+                // Sağa sola gezinme hareketi (Daha hızlı)
+                this.x += this.vx;
+                if (this.x < 100 || this.x > canvas.width - 100) {
+                    this.vx *= -1;
+                }
+
+                // Saldırı Paternini her 3.8 saniyede bir değiştir (Daha agresif geçişler)
+                const now = Date.now();
+                if (now - this.patternTimer > 3800) {
+                    this.patternTimer = now;
+                    this.attackPattern = (this.attackPattern + 1) % 3;
+                }
+
+                // Saldırılar
+                if (now - this.lastAttackTime > this.getAttackSpeed()) {
+                    this.lastAttackTime = now;
+                    this.executeAttack();
+                }
+            }
+
+            getAttackSpeed() {
+                if (this.attackPattern === 0) return 500; // Çok daha hızlı Süper Yelpaze Atışı
+                if (this.attackPattern === 1) return 150; // Aşırı hızlı hedef lazer
+                return 1800; // Daha sık minyon çağırma
+            }
+
+            executeAttack() {
+                if (this.attackPattern === 0) {
+                    // Süper Yelpaze Saldırısı (Artık tam 7 yöne birden çok daha hızlı mermi fırlatır!)
+                    for (let i = -3; i <= 3; i++) {
+                        const angle = Math.PI / 2 + (i * 0.22);
+                        enemies.push(new EnemyBullet(this.x, this.y + 30, Math.cos(angle) * 6.5, Math.sin(angle) * 6.5));
+                    }
+                } else if (this.attackPattern === 1) {
+                    // Işık Hızında Hedef Odaklı Atış (Daha hızlı ve tehlikeli turuncu mermiler)
+                    const angle = Math.atan2(player.y - this.y, player.x - this.x);
+                    enemies.push(new EnemyBullet(this.x, this.y + 30, Math.cos(angle) * 9.5, Math.sin(angle) * 9.5, '#ff9000'));
+                } else if (this.attackPattern === 2) {
+                    // Seçkin Minyon Savaşçılar Çağır (Artık Kamikaze ile birlikte güçlü Fighter savaşçıları da çağırır!)
+                    if (enemies.filter(e => !e.isBullet).length < 7) { 
+                        enemies.push(new Enemy(this.x - 70, this.y + 10, 'kamikaze'));
+                        enemies.push(new Enemy(this.x, this.y + 20, 'fighter'));
+                        enemies.push(new Enemy(this.x + 70, this.y + 10, 'kamikaze'));
+                    }
+                }
+            }
+        }
+
+        class Enemy {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.type = type; 
+                this.lastShot = 0;
+                
+                // Seviyeye bağlı zorluk çarpanı (Her seviyede %18 daha zor)
+                const difficultyMultiplier = 1 + (level - 1) * 0.18;
+
+                switch(type) {
+                    case 'asteroid':
+                        this.size = Math.random() * 25 + 15;
+                        this.hp = Math.ceil((this.size / 10) * difficultyMultiplier);
+                        this.speedY = (Math.random() * 2 + 1.2) * (1 + level * 0.05);
+                        this.speedX = Math.random() * 1.5 - 0.75;
+                        this.color = '#888';
+                        this.scoreValue = 10;
+                        this.rotation = 0;
+                        this.rotationSpeed = Math.random() * 0.04 - 0.02;
+                        break;
+                    case 'scout':
+                        this.size = 20;
+                        this.hp = Math.ceil(1 * difficultyMultiplier);
+                        this.speedY = 2 * (1 + level * 0.05);
+                        this.speedX = Math.random() * 3 - 1.5;
+                        this.color = '#ff00e1';
+                        this.scoreValue = 25;
+                        break;
+                    case 'fighter':
+                        this.size = 26;
+                        this.hp = Math.ceil(3 * difficultyMultiplier);
+                        this.speedY = 1.3 * (1 + level * 0.04);
+                        this.speedX = Math.random() * 1.6 - 0.8;
+                        this.color = '#ff0055';
+                        this.scoreValue = 50;
+                        this.fireCooldown = Math.max(800, 2600 - level * 150);
+                        break;
+                    case 'kamikaze':
+                        this.size = 18;
+                        this.hp = Math.ceil(1 * difficultyMultiplier);
+                        this.speedY = 4.5 * (1 + level * 0.03);
+                        this.speedX = 0;
+                        this.color = '#ff9000';
+                        this.scoreValue = 40;
+                        break;
+                }
+                this.maxHp = this.hp;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = this.color;
+                ctx.fillStyle = '#03001e';
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 2.5;
+
+                if (this.type === 'asteroid') {
+                    ctx.translate(this.x, this.y);
+                    ctx.rotate(this.rotation);
+                    ctx.beginPath();
+                    const points = 8;
+                    for (let i = 0; i < points; i++) {
+                        const angle = (i / points) * Math.PI * 2;
+                        const r = this.size * (0.8 + Math.sin(i * 3) * 0.15);
+                        const px = Math.cos(angle) * r;
+                        const py = Math.sin(angle) * r;
+                        if (i === 0) ctx.moveTo(px, py);
+                        else ctx.lineTo(px, py);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                } else if (this.type === 'scout') {
+                    ctx.translate(this.x, this.y);
+                    ctx.beginPath();
+                    ctx.moveTo(0, 15);
+                    ctx.lineTo(12, -10);
+                    ctx.lineTo(-12, -10);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                } else if (this.type === 'fighter') {
+                    ctx.translate(this.x, this.y);
+                    ctx.beginPath();
+                    ctx.moveTo(0, 18);
+                    ctx.lineTo(16, -4);
+                    ctx.lineTo(8, -14);
+                    ctx.lineTo(-8, -14);
+                    ctx.lineTo(-16, -4);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                } else if (this.type === 'kamikaze') {
+                    ctx.translate(this.x, this.y);
+                    ctx.beginPath();
+                    ctx.moveTo(0, 15);
+                    ctx.lineTo(10, -8);
+                    ctx.lineTo(0, -3);
+                    ctx.lineTo(-10, -8);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                }
+
+                if (this.hp < this.maxHp) {
+                    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                    ctx.fillRect(-15, -22, 30, 4);
+                    ctx.fillStyle = '#00ff55';
+                    ctx.fillRect(-15, -22, 30 * (this.hp / this.maxHp), 4);
+                }
+
+                ctx.restore();
+            }
+
+            update() {
+                this.y += this.speedY;
+                this.x += this.speedX;
+
+                if (this.type === 'asteroid') {
+                    this.rotation += this.rotationSpeed;
+                }
+
+                if (this.type === 'scout' && (this.x < 20 || this.x > canvas.width - 20)) {
+                    this.speedX *= -1;
+                }
+
+                if (this.type === 'kamikaze' && player) {
+                    const dx = player.x - this.x;
+                    this.x += Math.sign(dx) * 1.5;
+                }
+
+                if (this.type === 'fighter') {
+                    const now = Date.now();
+                    if (!this.lastShot) this.lastShot = now - Math.random() * 1500;
+                    if (now - this.lastShot > this.fireCooldown) {
+                        this.lastShot = now;
+                        const angle = Math.atan2(player.y - this.y, player.x - this.x);
+                        enemies.push(new EnemyBullet(this.x, this.y, Math.cos(angle) * 5.5, Math.sin(angle) * 5.5));
+                    }
+                }
+            }
+        }
+
+        class EnemyBullet {
+            constructor(x, y, vx, vy, color = '#ff0055') {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.size = 4.5;
+                this.color = color;
+                this.isBullet = true; 
+            }
+
+            draw() {
+                ctx.save();
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = this.color;
+                ctx.fillStyle = '#fff';
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.fill();
+                ctx.restore();
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+            }
+        }
+
+        class Item {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.type = type; 
+                this.size = type === 'crystal' ? 8 : 12;
+                this.speedY = 2;
+                this.color = type === 'crystal' ? '#ffd700' : (type === 'shieldFill' ? '#00f3ff' : '#ff0055');
+            }
+
+            draw() {
+                ctx.save();
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = this.color;
+                ctx.fillStyle = this.color;
+                ctx.translate(this.x, this.y);
+
+                if (this.type === 'crystal') {
+                    ctx.beginPath();
+                    ctx.moveTo(0, -this.size);
+                    ctx.lineTo(this.size * 0.7, 0);
+                    ctx.lineTo(0, this.size);
+                    ctx.lineTo(-this.size * 0.7, 0);
+                    ctx.closePath();
+                    ctx.fill();
+                } else if (this.type === 'shieldFill') {
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.size - 4, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (this.type === 'life') {
+                    ctx.beginPath();
+                    ctx.moveTo(0, this.size * 0.3);
+                    ctx.bezierCurveTo(-this.size, -this.size * 0.5, -this.size, this.size, 0, this.size);
+                    ctx.bezierCurveTo(this.size, this.size, this.size, -this.size * 0.5, 0, this.size * 0.3);
+                    ctx.fill();
+                }
+
+                ctx.restore();
+            }
+
+            update() {
+                this.y += this.speedY;
+
+                const dist = Math.hypot(player.x - this.x, player.y - this.y);
+                if (dist < 180) {
+                    const angle = Math.atan2(player.y - this.y, player.x - this.x);
+                    this.x += Math.cos(angle) * 4.5;
+                    this.y += Math.sin(angle) * 4.5;
+                }
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color, size, vx, vy, life) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.size = size;
+                this.vx = vx;
+                this.vy = vy;
+                this.life = life; 
+                this.maxLife = life;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.life / this.maxLife;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life--;
+            }
+        }
+
+        // YARDIMCI OYUN FONKSİYONLARI
+
+        function createExplosion(x, y, color, count = 15) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 5 + 1;
+                const size = Math.random() * 3 + 1;
+                const life = Math.random() * 30 + 15;
+                particles.push(new Particle(
+                    x, y, color, size, 
+                    Math.cos(angle) * speed, 
+                    Math.sin(angle) * speed, 
+                    life
+                ));
+            }
+        }
+
+        let spawnTimer = 0;
+        let spawnInterval = 1200; 
+
+        function spawnEnemies() {
+            // Boss savaşında normal düşman üretimi devre dışı kalır
+            if (level === maxLevel) return;
+
+            const now = Date.now();
+            if (now - spawnTimer > spawnInterval) {
+                spawnTimer = now;
+
+                const roll = Math.random();
+                const randomX = Math.random() * (canvas.width - 60) + 30;
+
+                // Seviyelere göre yeni düşmanları sisteme sok
+                if (roll < 0.40) {
+                    enemies.push(new Enemy(randomX, -40, 'asteroid'));
+                } else if (roll < 0.65) {
+                    enemies.push(new Enemy(randomX, -40, 'scout'));
+                } else if (roll < 0.85 || level < 3) {
+                    enemies.push(new Enemy(randomX, -40, 'kamikaze'));
+                } else {
+                    enemies.push(new Enemy(randomX, -40, 'fighter'));
+                }
+            }
+        }
+
+        function updateHUD() {
+            document.getElementById('scoreText').innerText = String(score).padStart(5, '0');
+            document.getElementById('levelText').innerText = level === maxLevel ? "BOSS SEVİYESİ" : `Seviye ${level} / ${maxLevel}`;
+            document.getElementById('coinsText').innerText = `💎 ${coins}`;
+
+            const heartsContainer = document.getElementById('heartsContainer');
+            heartsContainer.innerHTML = '';
+            for (let i = 0; i < player.lives; i++) {
+                heartsContainer.innerHTML += '❤️ ';
+            }
+
+            const shieldPct = Math.max(0, (player.shield / player.getMaxShield()) * 100);
+            document.getElementById('shieldBar').style.width = `${shieldPct}%`;
+            document.getElementById('shieldPercentageText').innerText = `Kalkan %${Math.floor(shieldPct)}`;
+        }
+
+        let screenShake = 0;
+
+        function gameLoop(timestamp) {
+            if (gameState !== 'PLAYING') return;
+
+            let dx = 0, dy = 0;
+            if (screenShake > 0) {
+                dx = (Math.random() - 0.5) * screenShake;
+                dy = (Math.random() - 0.5) * screenShake;
+                screenShake *= 0.9; 
+                if (screenShake < 0.5) screenShake = 0;
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            ctx.translate(dx, dy);
+
+            // Yıldızlar
+            stars.forEach(star => {
+                star.y += star.speed;
+                if (star.y > canvas.height) {
+                    star.y = 0;
+                    star.x = Math.random() * canvas.width;
+                }
+                ctx.fillStyle = star.color;
+                ctx.fillRect(star.x, star.y, star.size, star.size);
+            });
+
+            // Oyuncu
+            player.update();
+            player.draw();
+
+            // Atış Kontrolü
+            if (isTouchDevice) {
+                player.fire();
+            } else if (keys['Space']) {
+                player.fire();
+            }
+
+            // Normal düşman üret (Eğer boss seviyesinde değilsek)
+            spawnEnemies();
+
+            // BOSS Girişi ve Güncellemesi
+            if (level === maxLevel) {
+                if (!boss) {
+                    boss = new Boss();
+                }
+                boss.update();
+                boss.draw();
+
+                // Boss Kalkan/Can Barlarını çizme
+                drawBossHealthBar();
+
+                // Oyuncu ile Boss Çarpışması
+                const distToBoss = Math.hypot(player.x - boss.x, player.y - boss.y);
+                if (distToBoss < player.width + boss.size * 0.8) {
+                    player.damage(1.5); // Sürekli yakın temas hasarı
+                    screenShake = 12;
+                }
+            }
+
+            // Oyuncu Mermileri
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const b = bullets[i];
+                b.update();
+                b.draw();
+
+                // Boss ile Çarpışma Testi
+                if (level === maxLevel && boss && b.y < boss.y + boss.size) {
+                    const distToBoss = Math.hypot(boss.x - b.x, boss.y - b.y);
+                    if (distToBoss < boss.size) {
+                        bullets.splice(i, 1);
+                        boss.hp--;
+                        createExplosion(b.x, b.y, '#ff0055', 4);
+                        sounds.playHit();
+
+                        if (boss.hp <= 0) {
+                            victory();
+                        }
+                        continue;
+                    }
+                }
+
+                if (b.y < -10 || b.y > canvas.height + 10 || b.x < -10 || b.x > canvas.width + 10) {
+                    bullets.splice(i, 1);
+                }
+            }
+
+            // Ödül Nesneleri
+            for (let i = items.length - 1; i >= 0; i--) {
+                const item = items[i];
+                item.update();
+                item.draw();
+
+                const dist = Math.hypot(player.x - item.x, player.y - item.y);
+                if (dist < player.width/2 + item.size) {
+                    if (item.type === 'crystal') {
+                        coins += 1;
+                        sounds.playPowerup();
+                    } else if (item.type === 'shieldFill') {
+                        // --- GÜNCELLEME: Kalkan Kazanımı 4 Kat Azaltıldı (50 -> 12.5) ---
+                        player.shield = Math.min(player.getMaxShield(), player.shield + 12.5);
+                        sounds.playPowerup();
+                    } else if (item.type === 'life') {
+                        player.lives = Math.min(5, player.lives + 1);
+                        sounds.playPowerup();
+                    }
+                    updateHUD();
+                    items.splice(i, 1);
+                    continue;
+                }
+
+                if (item.y > canvas.height + 20) {
+                    items.splice(i, 1);
+                }
+            }
+
+            // Düşmanlar ve Düşman Mermileri
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const enemy = enemies[i];
+                enemy.update();
+                enemy.draw();
+
+                if (enemy.y > canvas.height + 50) {
+                    enemies.splice(i, 1);
+                    continue;
+                }
+
+                // Çarpışma
+                if (!enemy.isBullet) {
+                    const dist = Math.hypot(player.x - enemy.x, player.y - enemy.y);
+                    if (dist < (player.width / 2.3) + (enemy.size / 1.2)) {
+                        player.damage(25);
+                        createExplosion(enemy.x, enemy.y, enemy.color, 15);
+                        enemies.splice(i, 1);
+                        continue;
+                    }
+                } else {
+                    const dist = Math.hypot(player.x - enemy.x, player.y - enemy.y);
+                    if (dist < (player.width / 2.3) + enemy.size) {
+                        player.damage(12);
+                        createExplosion(enemy.x, enemy.y, enemy.color, 8);
+                        enemies.splice(i, 1);
+                        continue;
+                    }
+                }
+
+                // Oyuncu Mermisi vs Normal Düşman
+                if (!enemy.isBullet) {
+                    for (let j = bullets.length - 1; j >= 0; j--) {
+                        const b = bullets[j];
+                        const distToBullet = Math.hypot(enemy.x - b.x, enemy.y - b.y);
+                        
+                        if (distToBullet < (enemy.size + b.radius)) {
+                            bullets.splice(j, 1);
+                            enemy.hp--;
+                            createExplosion(b.x, b.y, enemy.color, 3);
+
+                            if (enemy.hp <= 0) {
+                                sounds.playExplosion(enemy.type === 'asteroid');
+                                createExplosion(enemy.x, enemy.y, enemy.color, enemy.type === 'asteroid' ? 20 : 12);
+                                
+                                score += enemy.scoreValue;
+                                updateHUD();
+
+                                // --- YENİ DÜŞÜRME MANTIĞI ---
+                                if (enemy.type !== 'asteroid') {
+                                    // Meteorlar hariç kesin kristal düşer!
+                                    items.push(new Item(enemy.x, enemy.y, 'crystal'));
+                                    
+                                    // Ek olarak şans eseri can veya kalkan
+                                    const dropRoll = Math.random();
+                                    if (dropRoll < 0.12) {
+                                        items.push(new Item(enemy.x, enemy.y, 'shieldFill'));
+                                    } else if (dropRoll < 0.04) {
+                                        items.push(new Item(enemy.x, enemy.y, 'life'));
+                                    }
+                                } else {
+                                    // Meteorlardan eskisi gibi şans eseri düşer
+                                    const dropRoll = Math.random();
+                                    if (dropRoll < 0.20) {
+                                        items.push(new Item(enemy.x, enemy.y, 'crystal'));
+                                    } else if (dropRoll < 0.08) {
+                                        items.push(new Item(enemy.x, enemy.y, 'shieldFill'));
+                                    }
+                                }
+
+                                enemies.splice(i, 1);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Partiküller
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.update();
+                p.draw();
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            ctx.restore();
+
+            // Seviye Atlatma Kontrolü (Son seviye olan 10 değilse)
+            if (level < maxLevel && score >= level * scorePerLevel) {
+                levelUpTransition();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // BOSS CAN BARI
+        function drawBossHealthBar() {
+            if (!boss) return;
+            const barWidth = Math.min(450, canvas.width - 60);
+            const startX = (canvas.width - barWidth) / 2;
+            
+            ctx.save();
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#ff0055';
+            
+            // Arka plan paneli
+            ctx.fillStyle = 'rgba(3, 0, 30, 0.7)';
+            ctx.fillRect(startX - 10, 20, barWidth + 20, 35);
+            ctx.strokeStyle = 'rgba(255, 0, 85, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(startX - 10, 20, barWidth + 20, 35);
+
+            // Can Barı Dolgusu
+            const hpPct = Math.max(0, boss.hp / boss.maxHp);
+            ctx.fillStyle = '#ff0055';
+            ctx.fillRect(startX, 35, barWidth * hpPct, 12);
+
+            // Çerçeve
+            ctx.strokeStyle = '#ff0055';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(startX, 35, barWidth, 12);
+
+            // Başlık Yazısı
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 10px Orbitron';
+            ctx.textAlign = 'center';
+            ctx.fillText('NEMESIS PRIME - ANA GEMİ', canvas.width / 2, 31);
+            ctx.restore();
+        }
+
+        // SEVİYE ATLAYIŞ SÜRECİ
+        function levelUpTransition() {
+            gameState = 'SHOP';
+            sounds.playLevelUp();
+            sounds.stopBGM(); // Seviye geçiş dükkanında müzik duraklar
+            
+            enemies = [];
+            bullets = [];
+            
+            const nextLevel = level + 1;
+            if (nextLevel === maxLevel) {
+                document.getElementById('levelUpTitle').innerText = "FINAL BÖLÜMÜ!";
+                document.getElementById('levelUpTitle').className = "text-4xl md:text-6xl font-black text-red-500 tracking-widest uppercase scale-75 animate-pulse mb-2";
+                document.getElementById('nextLevelBannerText').innerText = "BOSS SAVAŞI GELİYOR. HAZIRLANIN!";
+            } else {
+                document.getElementById('levelUpTitle').innerText = "Seviye Atlandı!";
+                document.getElementById('levelUpTitle').className = "text-4xl md:text-6xl font-black text-fuchsia-400 tracking-widest uppercase scale-75 animate-bounce mb-2";
+                document.getElementById('nextLevelBannerText').innerText = "Geliştirme İstasyonu Açılıyor...";
+            }
+
+            document.getElementById('levelUpBanner').classList.remove('hidden');
+            
+            setTimeout(() => {
+                document.getElementById('levelUpBanner').classList.add('hidden');
+                openShopMenu();
+            }, 1800);
+        }
+
+        // MARKET / GELİŞTİRME MENÜSÜ FONKSİYONLARI
+        function openShopMenu() {
+            document.getElementById('hud').classList.add('hidden');
+            document.getElementById('shopMenu').classList.remove('hidden');
+            
+            document.getElementById('shopCoinsText').innerText = `Mevcut Kristal: 💎 ${coins}`;
+            renderUpgradesUI();
+        }
+
+        function renderUpgradesUI() {
+            // Ateş Hızı
+            let frHtml = '';
+            for (let i = 1; i <= maxUpgradeLvl; i++) {
+                frHtml += `<div class="w-3 h-3 rounded-full ${i <= upgrades.fireRate ? 'bg-cyan-400' : 'bg-gray-700'}"></div>`;
+            }
+            document.getElementById('fireRateProgress').innerHTML = frHtml;
+            
+            // Çoklu Atış
+            let msHtml = '';
+            for (let i = 1; i <= maxUpgradeLvl; i++) {
+                msHtml += `<div class="w-3 h-3 rounded-full ${i <= upgrades.multiShot ? 'bg-purple-400' : 'bg-gray-700'}"></div>`;
+            }
+            document.getElementById('multiShotProgress').innerHTML = msHtml;
+
+            // Kalkan
+            let shHtml = '';
+            for (let i = 1; i <= maxUpgradeLvl; i++) {
+                shHtml += `<div class="w-3 h-3 rounded-full ${i <= upgrades.shield ? 'bg-emerald-400' : 'bg-gray-700'}"></div>`;
+            }
+            document.getElementById('shieldProgress').innerHTML = shHtml;
+
+            const costs = {
+                fireRate: upgrades.fireRate < maxUpgradeLvl ? upgrades.fireRate * 12 : 'MAX',
+                multiShot: upgrades.multiShot < maxUpgradeLvl ? upgrades.multiShot * 18 : 'MAX',
+                shield: upgrades.shield < maxUpgradeLvl ? upgrades.shield * 10 : 'MAX'
+            };
+
+            updateUpgradeButton('btnUpgradeFireRate', upgrades.fireRate, costs.fireRate, 'cyan');
+            updateUpgradeButton('btnUpgradeMultiShot', upgrades.multiShot, costs.multiShot, 'purple');
+            updateUpgradeButton('btnUpgradeShield', upgrades.shield, costs.shield, 'emerald');
+        }
+
+        function updateUpgradeButton(btnId, currentLvl, cost, color) {
+            const btn = document.getElementById(btnId);
+            if (currentLvl >= maxUpgradeLvl) {
+                btn.innerText = 'MAKSİMUM';
+                btn.disabled = true;
+                btn.className = `w-full py-2 bg-gray-800 text-gray-500 border border-gray-700 rounded text-sm font-bold cursor-not-allowed`;
+            } else {
+                btn.disabled = false;
+                btn.innerText = `Geliştir: 💎 ${cost}`;
+                btn.className = `w-full py-2 bg-${color}-500/20 border border-${color}-500 text-${color}-300 hover:bg-${color}-500 hover:text-black font-bold rounded text-sm transition`;
+            }
+        }
+
+        function buyUpgrade(type) {
+            let cost = 0;
+            if (type === 'fireRate') cost = upgrades.fireRate * 12;
+            if (type === 'multiShot') cost = upgrades.multiShot * 18;
+            if (type === 'shield') cost = upgrades.shield * 10;
+
+            if (coins >= cost && upgrades[type] < maxUpgradeLvl) {
+                coins -= cost;
+                upgrades[type]++;
+                sounds.playPowerup();
+                
+                if (type === 'shield') {
+                    player.shield = player.getMaxShield();
+                }
+
+                document.getElementById('shopCoinsText').innerText = `Mevcut Kristal: 💎 ${coins}`;
+                renderUpgradesUI();
+            } else if (coins < cost) {
+                const btnId = 'btnUpgrade' + type.charAt(0).toUpperCase() + type.slice(1);
+                const btn = document.getElementById(btnId);
+                const origClass = btn.className;
+                btn.className = "w-full py-2 bg-red-600 border border-red-500 text-white font-bold rounded text-sm animate-pulse";
+                setTimeout(() => {
+                    btn.className = origClass;
+                }, 800);
+            }
+        }
+
+        // KONTROLLER VE ETKİLEŞİM
+
+        let isTouchDevice = false;
+
+        window.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+            if (e.code === 'Space') e.preventDefault();
+        });
+        window.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+        });
+
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        canvas.addEventListener('touchstart', (e) => {
+            isTouchDevice = true;
+            const t = e.touches[0];
+            touchStartX = t.clientX - player.x;
+            touchStartY = t.clientY - player.y;
+            sounds.init();
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (!player || gameState !== 'PLAYING') return;
+            const t = e.touches[0];
+            
+            player.x = t.clientX - touchStartX;
+            player.y = t.clientY - touchStartY;
+            
+            if (player.x < 25) player.x = 25;
+            if (player.x > canvas.width - 25) player.x = canvas.width - 25;
+            if (player.y < 25) player.y = 25;
+            if (player.y > canvas.height - 25) player.y = canvas.height - 25;
+            
+            e.preventDefault();
+        }, { passive: false });
+
+        // MENÜLER VE SAVAŞ DÖNGÜLERİ
+
+        function startNewGame() {
+            score = 0;
+            level = 1;
+            coins = 0;
+            upgrades = { fireRate: 1, multiShot: 1, shield: 1 };
+            spawnInterval = 1200;
+            boss = null;
+
+            player = new Player();
+            bullets = [];
+            enemies = [];
+            particles = [];
+            items = [];
+            
+            initStars();
+
+            gameState = 'PLAYING';
+            sounds.playPowerup();
+            sounds.startBGM('normal'); // Normal uzay müziğini başlat
+
+            document.getElementById('startMenu').classList.add('hidden');
+            document.getElementById('gameOverMenu').classList.add('hidden');
+            document.getElementById('shopMenu').classList.add('hidden');
+            document.getElementById('victoryMenu').classList.add('hidden');
+            document.getElementById('hud').classList.remove('hidden');
+
+            updateHUD();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- GÜNCELLEME: Kaldığın Seviyeden Devam Etme Mantığı ---
+        function continueGame() {
+            // Gemiyi, mermileri ve düşmanları sıfırla ama level ve geliştirmeleri koru
+            player = new Player(); // 3 can ve kalkanımız maksimum kapasitesine (25'e) kurulur
+            bullets = [];
+            enemies = [];
+            particles = [];
+            items = [];
+            boss = null;
+
+            // Skoru seviye başlangıç çizgisine sıfırla (haksız puan kasmayı önlemek için)
+            score = (level - 1) * scorePerLevel;
+
+            gameState = 'PLAYING';
+            sounds.playPowerup();
+            sounds.startBGM(level === maxLevel ? 'boss' : 'normal');
+
+            document.getElementById('gameOverMenu').classList.add('hidden');
+            document.getElementById('hud').classList.remove('hidden');
+
+            updateHUD();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function gameOver() {
+            gameState = 'GAMEOVER';
+            sounds.playExplosion(true);
+            sounds.stopBGM(); // Savaş bittiğinde müziği durdur
+
+            if (score > highscore) {
+                highscore = score;
+                localStorage.setItem('neon_shooter_highscore', highscore);
+            }
+
+            document.getElementById('hud').classList.add('hidden');
+            document.getElementById('gameOverMenu').classList.remove('hidden');
+
+            document.getElementById('finalScore').innerText = score;
+            document.getElementById('finalLevel').innerText = level;
+            document.getElementById('highScoreText').innerText = highscore;
+
+            // UI'daki devam edilecek seviye bilgisini yazdır
+            document.getElementById('continueLevelText').innerText = level;
+        }
+
+        function victory() {
+            gameState = 'VICTORY';
+            sounds.playLevelUp();
+            sounds.stopBGM(); // Zafer anında arka plan müziğini durdur
+            createExplosion(boss.x, boss.y, '#ffd700', 100); 
+
+            if (score + 2000 > highscore) {
+                highscore = score + 2000;
+                localStorage.setItem('neon_shooter_highscore', highscore);
+            }
+
+            document.getElementById('hud').classList.add('hidden');
+            document.getElementById('victoryMenu').classList.remove('hidden');
+
+            document.getElementById('vicScore').innerText = score + 1500; 
+            document.getElementById('vicCoins').innerText = `💎 ${coins}`;
+            document.getElementById('vicLives').innerText = player.lives;
+        }
+
+        // BUTON ATAMALARI
+        document.getElementById('startButton').addEventListener('click', () => {
+            sounds.init();
+            startNewGame();
+        });
+
+        // --- GÜNCELLEME: Buton Dinleyicileri ---
+        document.getElementById('continueButton').addEventListener('click', () => {
+            continueGame();
+        });
+
+        document.getElementById('restartButton').addEventListener('click', () => {
+            startNewGame(); // Sıfırdan Başla seçeneği
+        });
+
+        document.getElementById('victoryPlayAgainBtn').addEventListener('click', () => {
+            startNewGame();
+        });
+
+        document.getElementById('mainMenuButton').addEventListener('click', () => {
+            document.getElementById('gameOverMenu').classList.add('hidden');
+            document.getElementById('startMenu').classList.remove('hidden');
+            gameState = 'START';
+        });
+
+        document.getElementById('victoryMainMenuBtn').addEventListener('click', () => {
+            document.getElementById('victoryMenu').classList.add('hidden');
+            document.getElementById('startMenu').classList.remove('hidden');
+            gameState = 'START';
+        });
+
+        document.getElementById('resumeFromShopBtn').addEventListener('click', () => {
+            level++;
+            
+            // Son seviye gelmediyse hız artışını kurgula
+            if (level < maxLevel) {
+                spawnInterval = Math.max(450, 1200 - level * 90);
+            }
+            
+            gameState = 'PLAYING';
+            document.getElementById('shopMenu').classList.add('hidden');
+            document.getElementById('hud').classList.remove('hidden');
+            
+            player.shield = player.getMaxShield();
+            updateHUD();
+            
+            // Sonraki seviye müziğini başlat
+            if (level === maxLevel) {
+                sounds.startBGM('boss'); // 10. Seviye ise Boss müziğini aç
+            } else {
+                sounds.startBGM('normal'); // Normal seviye müziği devam etsin
+            }
+            
+            // Oyun döngüsünü market çıkışında yeniden başlatıyoruz!
+            requestAnimationFrame(gameLoop);
+        });
+
+        document.getElementById('toggleAudioBtn').addEventListener('click', (e) => {
+            sounds.enabled = !sounds.enabled;
+            e.target.innerText = sounds.enabled ? "Ses: AÇIK" : "Ses: KAPALI";
+            sounds.init();
+
+            if (sounds.enabled) {
+                if (gameState === 'PLAYING') {
+                    sounds.startBGM(level === maxLevel ? 'boss' : 'normal');
+                }
+            } else {
+                sounds.stopBGM();
+            }
+        });
+
+        // Tanıtım Yıldızları Akışı
+        initStars();
+        function drawIntroStars() {
+            if (gameState !== 'START') return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            stars.forEach(star => {
+                star.y += star.speed * 0.35; 
+                if (star.y > canvas.height) star.y = 0;
+                ctx.fillStyle = star.color;
+                ctx.fillRect(star.x, star.y, star.size, star.size);
+            });
+            requestAnimationFrame(drawIntroStars);
+        }
+        drawIntroStars();
+
+    </script>
+</body>
+</html>
